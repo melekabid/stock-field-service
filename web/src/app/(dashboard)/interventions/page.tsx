@@ -105,11 +105,6 @@ export default function InterventionsPage() {
 
   const pdfMutation = useMutation({
     mutationFn: async (id: string) => (await api.post<{ pdfUrl: string }>(`/reports/interventions/${id}/pdf`)).data,
-    onSuccess: (result) => {
-      const backendBase = String(api.defaults.baseURL ?? '').replace(/\/api$/, '');
-      window.open(`${backendBase}${result.pdfUrl}`, '_blank', 'noopener,noreferrer');
-    },
-    onError: (caught) => window.alert(extractApiMessage(caught, "Impossible de generer le PDF de l’intervention.")),
   });
 
   const deleteMutation = useMutation({
@@ -160,6 +155,28 @@ export default function InterventionsPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     saveMutation.mutate();
+  }
+
+  async function handleGeneratePdf(id: string) {
+    const pdfWindow = window.open('', '_blank', 'noopener,noreferrer');
+
+    try {
+      const result = await pdfMutation.mutateAsync(id);
+      const backendBase = String(api.defaults.baseURL ?? '').replace(/\/api$/, '');
+      const pdfUrl = `${backendBase}${result.pdfUrl}`;
+
+      if (pdfWindow) {
+        pdfWindow.location.href = pdfUrl;
+        return;
+      }
+
+      window.location.assign(pdfUrl);
+    } catch (caught) {
+      if (pdfWindow) {
+        pdfWindow.close();
+      }
+      window.alert(extractApiMessage(caught, "Impossible de generer le PDF de l’intervention."));
+    }
   }
 
   return (
@@ -229,7 +246,7 @@ export default function InterventionsPage() {
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() => pdfMutation.mutate(entry.id)}
+                            onClick={() => handleGeneratePdf(entry.id)}
                             className="btn-secondary px-4 py-3"
                           >
                             <FileDown size={16} />
