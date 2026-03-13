@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  TECHNICIAN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserCategory {
+  GERANT
+  COMMERCIAL
+  TECHNIQUE
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum ProductKind {
+  MACHINE
+  CONSUMABLE
+}
+
+enum InterventionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  STOCK_ALERT
+  INTERVENTION_ASSIGNED
+  INTERVENTION_COMPLETED
+  SYSTEM
+}
+
+enum IncomingStockStatus {
+  ORDERED
+  RECEIVED
+}
+
+model User {
+  id               String             @id @default(cuid())
+  email            String             @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  phone            String?
+  role             UserRole
+  category         UserCategory       @default(TECHNIQUE)
+  status           UserStatus         @default(ACTIVE)
+  lastLoginAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  managedItems     Intervention[]     @relation("managedBy")
+  assignedItems    Intervention[]     @relation("assignedTechnician")
+  stockMovements   StockMovement[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Supplier {
+  id          String    @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Warehouse {
+  id          String          @id @default(cuid())
+  name        String
+  code        String          @unique
+  location    String
+  products    ProductStock[]
+  movements   StockMovement[]
+  interventionItems InterventionItem[]
+  incomingStocks IncomingStock[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Product {
+  id               String             @id @default(cuid())
+  code             String             @unique
+  barcode          String?            @unique
+  name             String
+  description      String?
+  unitPrice        Decimal            @db.Decimal(12, 2)
+  alertThreshold   Int                @default(0)
+  kind             ProductKind        @default(CONSUMABLE)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  categoryId       String
+  supplierId       String
+  category         Category           @relation(fields: [categoryId], references: [id])
+  supplier         Supplier           @relation(fields: [supplierId], references: [id])
+  warehouseStocks  ProductStock[]
+  stockMovements   StockMovement[]
+  interventionItems InterventionItem[]
+  incomingStocks   IncomingStock[]
+}
+
+model ProductStock {
+  id           String    @id @default(cuid())
+  quantity     Int       @default(0)
+  productId    String
+  warehouseId  String
+  product      Product   @relation(fields: [productId], references: [id])
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id])
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([productId, warehouseId])
+}
+
+model StockMovement {
+  id            String            @id @default(cuid())
+  type          StockMovementType
+  quantity      Int
+  reference     String?
+  notes         String?
+  createdAt     DateTime          @default(now())
+  productId     String
+  warehouseId   String
+  userId        String
+  interventionId String?
+  product       Product           @relation(fields: [productId], references: [id])
+  warehouse     Warehouse         @relation(fields: [warehouseId], references: [id])
+  user          User              @relation(fields: [userId], references: [id])
+  intervention  Intervention?     @relation(fields: [interventionId], references: [id])
+}
+
+model IncomingStock {
+  id            String              @id @default(cuid())
+  productId     String
+  warehouseId   String
+  quantity      Int
+  expectedAt    DateTime
+  status        IncomingStockStatus @default(ORDERED)
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  receivedAt    DateTime?
+  product       Product             @relation(fields: [productId], references: [id])
+  warehouse     Warehouse           @relation(fields: [warehouseId], references: [id])
+}
+
+model Client {
+  id             String         @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  billingAddress String?
+  sites          Site[]
+  interventions  Intervention[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Site {
+  id             String         @id @default(cuid())
+  name           String
+  address        String
+  city           String?
+  country        String?
+  latitude       Float?
+  longitude      Float?
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id])
+  interventions  Intervention[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Intervention {
+  id                String               @id @default(cuid())
+  number            String               @unique
+  date              DateTime
+  status            InterventionStatus   @default(OPEN)
+  description       String
+  notes             String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  pdfUrl            String?
+  clientId          String
+  siteId            String
+  managerId         String
+  technicianId      String
+  client            Client               @relation(fields: [clientId], references: [id])
+  site              Site                 @relation(fields: [siteId], references: [id])
+  manager           User                 @relation("managedBy", fields: [managerId], references: [id])
+  technician        User                 @relation("assignedTechnician", fields: [technicianId], references: [id])
+  items             InterventionItem[]
+  photos            Photo[]
+  signature         Signature?
+  stockMovements    StockMovement[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+model InterventionItem {
+  id              String        @id @default(cuid())
+  quantity        Int
+  unitPrice       Decimal       @db.Decimal(12, 2)
+  productId       String
+  interventionId  String
+  warehouseId     String
+  product         Product       @relation(fields: [productId], references: [id])
+  warehouse       Warehouse     @relation(fields: [warehouseId], references: [id])
+  intervention    Intervention  @relation(fields: [interventionId], references: [id])
+}
+
+model Photo {
+  id              String        @id @default(cuid())
+  url             String
+  caption         String?
+  interventionId  String
+  createdAt       DateTime      @default(now())
+  intervention    Intervention  @relation(fields: [interventionId], references: [id])
+}
+
+model Signature {
+  id              String        @id @default(cuid())
+  url             String
+  signerName      String
+  signedAt        DateTime      @default(now())
+  interventionId  String        @unique
+  intervention    Intervention  @relation(fields: [interventionId], references: [id])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  readAt      DateTime?
+  userId      String
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  action      String
+  entity      String
+  entityId    String?
+  payload     Json?
+  createdAt   DateTime  @default(now())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+}

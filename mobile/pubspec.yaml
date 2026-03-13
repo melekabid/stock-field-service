@@ -1,0 +1,32 @@
+name: stock_field_service_mobile
+description: Technician mobile application for field interventions and stock consumption.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  connectivity_plus: ^6.1.3
+  dio: ^5.8.0+1
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.8.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  image_picker: ^1.1.2
+  mobile_scanner: ^5.2.3
+  path_provider: ^2.1.5
+  signature: ^5.5.0
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/sacoges_logo.png

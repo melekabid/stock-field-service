@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: stock-field-postgres
+    environment:
+      POSTGRES_DB: stock_field_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build:
+      context: ../backend
+    container_name: stock-field-backend
+    env_file:
+      - ../backend/.env.example
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/stock_field_service?schema=public
+    depends_on:
+      - postgres
+    ports:
+      - "3001:3001"
+    volumes:
+      - ../backend/uploads:/app/uploads
+
+  web:
+    build:
+      context: ../web
+    container_name: stock-field-web
+    env_file:
+      - ../web/.env.example
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: stock-field-nginx
+    depends_on:
+      - web
+      - backend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres_data:
